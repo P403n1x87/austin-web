@@ -12,9 +12,13 @@ String.prototype.toHHMMSS = function () {
   return hours+':'+minutes+':'+seconds;
 }
 
+function esc(text) {
+  return text.replace("<", "&lt;").replace(">", "&gt;")
+}
+
 function time_label(d, parent) {
   return (
-    d.data.name + " 🕘 " + (d.data.value/1000000).toString().toHHMMSS() +
+    esc(d.data.name) + " 🕘 " + (d.data.value/1000000).toString().toHHMMSS() +
     " (" + (d.data.value / parent.data.value * 100).toFixed(2) + "%)"
   )
 }
@@ -25,14 +29,12 @@ function memory_label(d, parent) {
     : (d.data.value >> 10).toString() + " MB";
 
   return (
-    d.data.name + " " + value +
+    esc(d.data.name) + " 📏 " + value +
     " (" + (d.data.value / parent.data.value * 100).toFixed(2) + "%)"
   )
 }
 
 var label_map = {"t": time_label, "m": memory_label};
-
-var label = time_label;  // This gets set by webocket.js
 
 // ----------------------------------------------------------------------------
 
@@ -74,14 +76,8 @@ flameGraph.setWidth = function (width) {
 var details = document.getElementById("details");
 flameGraph.setDetailsElement(details);
 
-var start = {
-  "name": "root",
-  "value": 1,
-  "children": []
-}
-
 d3.select("#chart")
-  .datum(start)
+  .datum(data)
   .call(flameGraph);
 
 document.getElementById("form").addEventListener("submit", function (event) {

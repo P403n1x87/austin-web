@@ -21,8 +21,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+from enum import Enum
 import json
-from os import environ as env
 import sys
 import weakref
 
@@ -30,38 +30,108 @@ from aiohttp import web
 from aiohttp.test_utils import unused_port
 from austin import AustinError
 from austin.aio import AsyncAustin
-from austin.cli import AustinArgumentParser
+from austin.cli import AustinArgumentParser, AustinCommandLineError
+from halo import Halo
 from pyfiglet import Figlet
 
 from austin_web.data import DataPool, WebFrame
-from austin_web.html import load_site
+from austin_web.html import load_compile, load_site
 
 
 class AustinWebArgumentParser(AustinArgumentParser):
-    def __init__(self):
-        super().__init__(name="austin-tui", full=False)
+    def __init__(self, *args, **kwargs):
+        super().__init__(name="austin-tui", full=False, alt_format=False)
+
+        # ---- Serve command ----
+        self.add_argument(
+            "-S",
+            "--serve",
+            help="Serve Austin Web for live Austin data visualisation.",
+            action="store_true",
+        )
+
+        self.add_argument(
+            "-H",
+            "--host",
+            help="Set the host to serve on. Defaults to localhost.",
+            type=str,
+            default="localhost",
+        )
+        self.add_argument(
+            "-P",
+            "--port",
+            help="Set the port to serve on. Defaults to an ephemaral port.",
+            type=int,
+            default=0,
+        )
+
+        # ---- Compile command ----
+        self.add_argument(
+            "-c",
+            "--compile",
+            help="Compile Austin data into an HTML flame graph visualisation into the given output file.",
+            type=str,
+        )
+
+
+class AustinWebMode(Enum):
+    SERVE = 0
+    COMPILE = 1
 
 
 class AustinWeb(AsyncAustin):
     def __init__(self):
         super().__init__()
 
-        self._args = AustinWebArgumentParser().parse_args()
+        try:
+            self._args = AustinWebArgumentParser().parse_args()
+            if self._args.compile and self._args.serve:
+                raise AustinCommandLineError(
+                    "Incompatible options: compile and serve.", -1
+                )
+        except AustinCommandLineError as e:
+            print(e.args[0])
+            exit(e.args[1])
+
+        self._mode = (
+            AustinWebMode.COMPILE if self._args.compile else AustinWebMode.SERVE
+        )
         self._pools = weakref.WeakSet()
+        self._pool = None
         self._runner = None
         self._global_stats = None
+        self._spinner = None
 
     def on_ready(self, *args, **kwargs):
-        asyncio.get_event_loop().create_task(self.start_server())
+        if self._mode == AustinWebMode.SERVE:
+            asyncio.get_event_loop().create_task(self.start_server())
+        else:
+            self._spinner = Halo(text="Sampling", spinner="dots")
+            self._spinner.start()
+            self._pool = DataPool(self)
 
     def on_sample_received(self, text):
-        for data_pool in self._pools:
-            data_pool.add(WebFrame.parse(text))
+        frame = WebFrame.parse(text)
+        if self._mode == AustinWebMode.SERVE:
+            for data_pool in self._pools:
+                data_pool.add(frame)
+        else:
+            self._pool.add(frame)
 
     def on_terminate(self, stats):
         self._global_stats = stats
-        asyncio.get_event_loop().create_task(self.stop_server())
-        self.shutdown()
+        if self._mode == AustinWebMode.SERVE:
+            asyncio.get_event_loop().create_task(self.stop_server())
+        else:
+            self._spinner.stop()
+            with open(self._args.compile, "w") as fout:
+                fout.write(
+                    load_compile(
+                        data=json.dumps(self._pool.data.to_dict()),
+                        profile_type="Memory" if self._args.memory else "Time",
+                    )
+                )
+            raise KeyboardInterrupt("Compilation done")
 
     def new_data_pool(self):
         data_pool = DataPool(self)
@@ -107,8 +177,8 @@ class AustinWeb(AsyncAustin):
             [web.get("/", self.handle_home), web.get("/ws", self.handle_websocket)]
         )
 
-        port = int(env.get("WEBAUSTIN_PORT", 0)) or unused_port()
-        host = env.get("WEBAUSTIN_HOST") or "localhost"
+        port = self._args.port or unused_port()
+        host = self._args.host
 
         self.html = load_site()
 

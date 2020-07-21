@@ -29,7 +29,7 @@
 
   </head>
   <body onresize="onresize()">
-    {{ ui.html }}
+    {{ ui_static.html }}
 
     <!-- D3.js -->
     <script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
@@ -41,15 +41,9 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/spiermar/d3-flame-graph@2.0.3/dist/d3-flamegraph.min.js"></script>
 
     <script type="text/javascript">
-      var label = time_label;  // This gets set by webocket.js
-      var data = {
-        "name": "root",
-        "value": 1,
-        "children": []
-      }
+      var label = ((% label %))_label
+      var data = ((% data %))
       {{ flamegraph.js }}
-      {{ websocket.js }}
-      {{ duration.js }}
     </script>
   </body>
 </html>

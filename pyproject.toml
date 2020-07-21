@@ -49,6 +49,7 @@ python = ">=3.6"
 austin-python = {git = "https://github.com/P403n1x87/austin-python.git", branch = "devel"}
 aiohttp = "^3.6.2"
 importlib_resources = "^3.0.0"
+halo = "^0.0.29"
 
 [tool.poetry.dev-dependencies]
 coverage = {extras = ["toml"], version = "*"}
