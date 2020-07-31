@@ -12,7 +12,6 @@ def test_webframe():
         "P123;T0x546745146;foo (foo_module.py:10);bar (bar_module.py:20) 1042"
     )
 
-    print(repr(root))
     node = root
     for height in range(5, 0, -1):
         assert node.height == height

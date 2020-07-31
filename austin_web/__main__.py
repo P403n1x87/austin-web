@@ -24,6 +24,7 @@ import asyncio
 from enum import Enum
 import json
 import sys
+from typing import Any, List, Optional, Type
 import weakref
 
 from aiohttp import web
@@ -31,15 +32,26 @@ from aiohttp.test_utils import unused_port
 from austin import AustinError
 from austin.aio import AsyncAustin
 from austin.cli import AustinArgumentParser, AustinCommandLineError
+from austin_web.data import DataPool, WebFrame
+from austin_web.html import load_compile, load_site
 from halo import Halo
 from pyfiglet import Figlet
 
-from austin_web.data import DataPool, WebFrame
-from austin_web.html import load_compile, load_site
+
+if sys.platform == "win32":
+    asyncio.set_event_loop(asyncio.ProactorEventLoop())
+
+
+class AustinWebError(AustinError):
+    """AustinWeb own generic error."""
+
+    pass
 
 
 class AustinWebArgumentParser(AustinArgumentParser):
-    def __init__(self, *args, **kwargs):
+    """AustinWeb command line parser."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(name="austin-tui", full=False, alt_format=False)
 
         # ---- Serve command ----
@@ -69,40 +81,40 @@ class AustinWebArgumentParser(AustinArgumentParser):
         self.add_argument(
             "-c",
             "--compile",
-            help="Compile Austin data into an HTML flame graph visualisation into the given output file.",
+            help="Compile Austin data into an HTML flame graph visualisation "
+            "into the given output file.",
             type=str,
         )
 
 
 class AustinWebMode(Enum):
+    """AustinWeb mode."""
+
     SERVE = 0
     COMPILE = 1
 
 
 class AustinWeb(AsyncAustin):
-    def __init__(self):
+    """AustinWeb subclass of AsyncAustin."""
+
+    def __init__(self, args: Optional[List[str]] = None) -> None:
         super().__init__()
 
-        try:
-            self._args = AustinWebArgumentParser().parse_args()
-            if self._args.compile and self._args.serve:
-                raise AustinCommandLineError(
-                    "Incompatible options: compile and serve.", -1
-                )
-        except AustinCommandLineError as e:
-            print(e.args[0])
-            exit(e.args[1])
+        self._args = AustinWebArgumentParser().parse_args(args)
+        if self._args.compile and self._args.serve:
+            raise AustinCommandLineError("Incompatible options: compile and serve.", -1)
 
         self._mode = (
             AustinWebMode.COMPILE if self._args.compile else AustinWebMode.SERVE
         )
-        self._pools = weakref.WeakSet()
-        self._pool = None
-        self._runner = None
-        self._global_stats = None
-        self._spinner = None
+        self._pools: weakref.WeakSet = weakref.WeakSet()
+        self._pool: Optional[DataPool] = None
+        self._runner: Optional[web.AppRunner] = None
+        self._global_stats: Optional[str] = None
+        self._spinner: Optional[Halo] = None
 
-    def on_ready(self, *args, **kwargs):
+    def on_ready(self, *args: Any, **kwargs: Any) -> None:
+        """Austin ready callback."""
         if self._mode == AustinWebMode.SERVE:
             asyncio.get_event_loop().create_task(self.start_server())
         else:
@@ -110,41 +122,60 @@ class AustinWeb(AsyncAustin):
             self._spinner.start()
             self._pool = DataPool(self)
 
-    def on_sample_received(self, text):
-        frame = WebFrame.parse(text)
+    def on_sample_received(self, text: str) -> None:
+        """Austin sample received callback."""
         if self._mode == AustinWebMode.SERVE:
+            if not self._pools:
+                return
+            frame = WebFrame.parse(text)
             for data_pool in self._pools:
                 data_pool.add(frame)
         else:
-            self._pool.add(frame)
+            if not self._pool:
+                raise AustinWebError("Data pool is unexpectedly missing")
+            self._pool.add(WebFrame.parse(text))
 
-    def on_terminate(self, stats):
+    def on_terminate(self, stats: str) -> None:
+        """Austin terminate callback."""
         self._global_stats = stats
-        if self._mode == AustinWebMode.SERVE:
-            asyncio.get_event_loop().create_task(self.stop_server())
-        else:
-            self._spinner.stop()
-            with open(self._args.compile, "w") as fout:
-                fout.write(
-                    load_compile(
-                        data=json.dumps(self._pool.data.to_dict()),
-                        profile_type="Memory" if self._args.memory else "Time",
-                    )
-                )
-            raise KeyboardInterrupt("Compilation done")
+        if self._mode == AustinWebMode.COMPILE:
+            if self._spinner:
+                self._spinner.stop()
 
-    def new_data_pool(self):
+            self.compile()
+
+            asyncio.get_event_loop().stop()
+
+    def new_data_pool(self) -> DataPool:
+        """Make new data pool for incoming request."""
         data_pool = DataPool(self)
         self._pools.add(data_pool)
         return data_pool
 
-    def discard_data_pool(self, data_pool):
+    def discard_data_pool(self, data_pool: DataPool) -> None:
+        """Discard no longer used data pool."""
         self._pools.discard(data_pool)
 
-    async def handle_home(self, request):
+    def compile(self) -> None:
+        """Compile collected samples."""
+        if self._pool is None:
+            return
+
+        with open(self._args.compile, "w") as fout:
+            fout.write(
+                load_compile(
+                    data=json.dumps(self._pool.data.to_dict()),
+                    profile_type="Memory" if self._args.memory else "Time",
+                )
+            )
+            print(f"✨🧁✨ Samples compiled into {self._args.compile}")
+
+    async def handle_home(self, request: web.Request) -> web.Response:
+        """Home page handler."""
         return web.Response(body=self.html, content_type="text/html")
 
-    async def handle_websocket(self, request):
+    async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
+        """Web socket handler."""
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
@@ -171,7 +202,8 @@ class AustinWeb(AsyncAustin):
 
         return ws
 
-    async def start_server(self):
+    async def start_server(self) -> None:
+        """Start the web server asynchronously."""
         app = web.Application()
         app.add_routes(
             [web.get("/", self.handle_home), web.get("/ws", self.handle_websocket)]
@@ -183,37 +215,69 @@ class AustinWeb(AsyncAustin):
         self.html = load_site()
 
         self._runner = web.AppRunner(app)
+        if not self._runner:
+            raise AustinWebError("Cannot create web app runner.")
         await self._runner.setup()
         site = web.TCPSite(self._runner, host, port)
         await site.start()
 
-        # web.run_app(app, host=host, port=port, print=None)
-
         print(Figlet(font="speed", width=240).renderText("* Austin Web *"))
         print(
-            f"* Sampling process with PID {self.get_process().pid} ({self.get_command_line()})"
+            f"⏲️ Sampling process with PID {self.get_process().pid} "
+            f"({self.get_command_line()})"
         )
-        print(f"* Austin Web is running on http://{host}:{port}. Press Ctrl+C to stop.")
+        print(f"🏃 Austin Web is running on http://{host}:{port}. Press Ctrl+C to stop.")
 
-    async def stop_server(self):
-        await self._runner.cleanup()
+    async def stop_server(self) -> None:
+        """Stop the web server asynchronously."""
+        if self._runner:
+            await self._runner.cleanup()
 
-    def run(self):
-        loop = asyncio.get_event_loop()
+    async def start(self, args: List[str]) -> None:
+        """Start austin and catch any exceptions."""
+        try:
+            await super().start(args)
+        except AustinError as e:
+            raise KeyboardInterrupt("Failed to start Austin") from e
+
+    def run(self) -> None:
+        """Run Austin Web."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            loop = asyncio.get_event_loop()
 
         try:
             loop.create_task(self.start(AustinWebArgumentParser.to_list(self._args)))
             loop.run_forever()
-        except KeyboardInterrupt:
+        except KeyboardInterrupt as e:
+            if e.__cause__:
+                print(
+                    "❌ Austin failed to start. Please ensure that the Austin binary\n"
+                    "is on the PATH environment variable and that the command line\n"
+                    "arguments are correct."
+                )
             pass
         finally:
             self.shutdown()
 
-    def shutdown(self):
-        for task in asyncio.Task.all_tasks():
-            task.cancel()
+    def shutdown(self) -> None:
+        """Shutdown Austin Web."""
+        asyncio.get_event_loop().run_until_complete(self.stop_server())
 
-        pending = [task for task in asyncio.Task.all_tasks() if not task.done()]
+        try:
+            all_tasks = asyncio.all_tasks  # Python 3.7+
+        except AttributeError:
+            all_tasks = asyncio.Task.all_tasks  # Python 3.6
+
+        try:
+            for task in all_tasks():
+                task.cancel()
+        except RuntimeError:
+            return
+
+        pending = [task for task in all_tasks() if not task.done()]
         if pending:
             try:
                 done, _ = asyncio.get_event_loop().run_until_complete(
@@ -230,11 +294,18 @@ class AustinWeb(AsyncAustin):
             print(self._global_stats)
 
 
-def main():
-    if sys.platform == "win32":
-        asyncio.set_event_loop(asyncio.ProactorEventLoop())
+def _main(cls: Type[AustinWeb], args: List[str]) -> None:
+    cls(args).run()
 
-    AustinWeb().run()
+
+def main() -> None:
+    """The main function."""
+    try:
+        _main(AustinWeb, sys.argv[1:])
+    except AustinCommandLineError as e:
+        message, *code = e.args
+        print(message)
+        exit(code[0] if code else -1)
 
 
 if __name__ == "__main__":

@@ -1,24 +1,30 @@
 import json
+from typing import Any, Dict, List, Optional
 
+from aiohttp import web
+from austin.aio import AsyncAustin
+from austin.stats import Frame, Sample
 import psutil
-
-from austin.stats import Sample
 
 
 class WebFrame:
+    """Frame class designed to work nicely with d3-flame-graph."""
 
     __slots__ = ["name", "value", "children", "index", "parent", "height"]
 
-    def __init__(self, name, value):
-        self.name = str(name)
-        self.value = value
-        self.children = []
-        self.index = {}
-        self.parent = None
-        self.height = 1
+    def __init__(self, name: Any, value: int) -> None:
+        self.name: str = str(name)
+        self.value: int = value
+        self.children: List["WebFrame"] = []
+        self.index: Dict[str, "WebFrame"] = {}
+        self.parent: Optional["WebFrame"] = None
+        self.height: int = 1
 
-    def __add__(self, other):
+    def __add__(self, other: "WebFrame") -> "WebFrame":
+        """Update the values by merging the right frame into the left one."""
         if self.name != other.name:
+            if not self.parent:
+                raise ValueError("Parent missing in non-root WebFrame")
             self.parent.add_child(other)
             self.parent.height = max(self.height, other.height) + 1
         else:
@@ -33,14 +39,17 @@ class WebFrame:
 
         return self
 
-    def add_child(self, frame):
+    def add_child(self, frame: "WebFrame") -> None:
+        """Add child frame to the frame."""
         self.index[frame.name] = frame
         frame.parent = self
         self.children.append(frame)
 
     @staticmethod
-    def parse(text):
-        def build_frame(frames):
+    def parse(text: str) -> "WebFrame":
+        """Create a frame from an Austin collapsed sample."""
+
+        def build_frame(frames: List[Frame]) -> "WebFrame":
             first, *tail = frames
             frame = WebFrame(str(first), sample.metrics.time)
             if tail:
@@ -71,29 +80,24 @@ class WebFrame:
         return root
 
     @staticmethod
-    def new_root():
+    def new_root() -> "WebFrame":
+        """Create a new root frame."""
         return WebFrame("root", 0)
 
-    def to_dict(self):
-        # ---------------------------------------
-        # Validation check
-        # ---------------------------------------
-        # s = 0
-        # for c in self.children:
-        #     s += c.value
-        #
-        # if s > self.value:
-        #     raise RuntimeError("Invalid Frame")
-        # ---------------------------------------
-
+    def to_dict(self) -> dict:
+        """Return the frame data in the form of a ``dict``."""
         return {
             "name": self.name,
             "value": self.value,
             "children": [c.to_dict() for c in self.children],
         }
 
-    def __repr__(self):
-        return f"{type(self).__name__}({ {s: getattr(self, s) for s in ['name', 'value', 'children', 'height']} })"
+    def __repr__(self) -> str:
+        """The frame representation of its fields."""
+        return (
+            type(self).__name__
+            + f"({ {s: getattr(self, s) for s in ['name', 'value', 'children', 'height']} })"
+        )
 
 
 class DataPool:
@@ -104,17 +108,22 @@ class DataPool:
     client can get the data that was seen from the moment they connected.
     """
 
-    def __init__(self, austin):
+    def __init__(self, austin: AsyncAustin) -> None:
         self._austin = austin
         self.max = 0
         self.data = WebFrame.new_root()
         self.samples = 0
 
-    def add(self, frame):
+    def add(self, frame: WebFrame) -> None:
+        """Add frame to the data pool."""
         self.data += frame
         self.samples += 1
 
-    async def send(self, ws):
+    async def send(self, ws: web.WebSocketResponse) -> bool:
+        """Send profiling data to websocket asynchronously.
+
+        Returns ``True`` on success, ``False`` otherwise.
+        """
         try:
             cpu = self._austin.get_child_process().cpu_percent()
             memory = self._austin.get_child_process().memory_full_info()[0] >> 20

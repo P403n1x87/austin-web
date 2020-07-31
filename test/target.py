@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
+
 from psutil import cpu_percent
 
 
 def main():
-    for i in range(10):
-        cpu_percent(interval=1, percpu=True)
+    for _ in range(10):
+        cpu_percent(interval=0.2, percpu=True)
 
 
 if __name__ == "__main__":
