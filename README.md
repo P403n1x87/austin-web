@@ -139,7 +139,7 @@ sudo austin-web -Cp <pid>
 
 # Compatibility
 
-Austin Web has been tested with Python 3.6-3.8 and is known to work on
+Austin Web has been tested with Python 3.6-3.9 and is known to work on
 **Linux**, **MacOS** and **Windows**.
 
 Austin Web is known to have some minor issues on Windows. When started in serve
