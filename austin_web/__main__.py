@@ -29,7 +29,7 @@ import weakref
 
 from aiohttp import web
 from aiohttp.test_utils import unused_port
-from austin import AustinError
+from austin import AustinError, AustinTerminated
 from austin.aio import AsyncAustin
 from austin.cli import AustinArgumentParser, AustinCommandLineError
 from austin_web.data import DataPool, WebFrame
@@ -237,6 +237,8 @@ class AustinWeb(AsyncAustin):
         """Start austin and catch any exceptions."""
         try:
             await super().start(args)
+        except AustinTerminated:
+            pass
         except AustinError as e:
             raise KeyboardInterrupt("Failed to start Austin") from e
 
