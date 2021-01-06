@@ -240,7 +240,8 @@ class AustinWeb(AsyncAustin):
         except AustinTerminated:
             pass
         except AustinError as e:
-            raise KeyboardInterrupt("Failed to start Austin") from e
+            asyncio.get_event_loop().stop()
+            raise e
 
     def run(self) -> None:
         """Run Austin Web."""
@@ -251,16 +252,20 @@ class AustinWeb(AsyncAustin):
             loop = asyncio.get_event_loop()
 
         try:
-            loop.create_task(self.start(AustinWebArgumentParser.to_list(self._args)))
+            austin_task = loop.create_task(
+                self.start(AustinWebArgumentParser.to_list(self._args))
+            )
             loop.run_forever()
-        except KeyboardInterrupt as e:
-            if e.__cause__:
-                print(
-                    "❌ Austin failed to start. Please ensure that the Austin binary\n"
-                    "is on the PATH environment variable and that the command line\n"
-                    "arguments are correct."
-                )
-            pass
+            if not austin_task.done():
+                austin_task.cancel()
+            austin_task.result()
+        except AustinError as e:
+            (message,) = e.args
+            if message[0] == "(":
+                _, _, message = message.partition(") ")
+            print(message)
+        except KeyboardInterrupt:
+            print()
         finally:
             self.shutdown()
 
@@ -291,9 +296,6 @@ class AustinWeb(AsyncAustin):
                         print(res)
             except (AustinError, asyncio.CancelledError):
                 pass
-
-        if self._global_stats:
-            print(self._global_stats)
 
 
 def _main(cls: Type[AustinWeb], args: List[str]) -> None:

@@ -23,7 +23,7 @@
 
 [tool.poetry]
 name = "austin-web"
-version = "0.1.1"
+version = "0.2.0"
 description = "Flame graph web application for Austin"
 license = "GPL-3.0-or-later"
 authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
@@ -49,7 +49,7 @@ austin-web = "austin_web.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-austin-python = "^0.1.0"
+austin-python = "^0.2.0"
 aiohttp = "^3.6.2"
 importlib_resources = "^3.0.0"
 halo = "^0.0.29"
