@@ -58,11 +58,10 @@
 
 # Synopsis
 
-Austin Web is a modern web interface for Austin, based on
-[D3.js](https://d3js.org/) and [tailwindcss](https://tailwindcss.com/). It is
-yet another example of how to use Austin to make a visual profiling tool for
-Python. The flame graph is generated using
-[d3-flame-graph](https://github.com/spiermar/d3-flame-graph).
+Austin Web is a modern web interface for [Austin], the frame stack sampler for
+CPython, based on [D3.js] and [tailwindcss]. It is yet another example of how to
+use Austin to make a visual profiling tool for Python. The flame graph is
+generated using [d3-flame-graph].
 
 <p align="center">
   <img src="art/austin-web-serve.gif"
@@ -76,9 +75,7 @@ seconds with newly collected data. Hence, Austin Web can also be used for
 _remote_ profiling.
 
 You can also run Austin Web in _compile_ mode to generate a static flame graph
-HTML page, much like
-[flamegraph.pl](https://github.com/brendangregg/FlameGraph), but with the full
-Austin Web UI around it.
+HTML page, much like [flamegraph.pl], but with the full Austin Web UI around it.
 
 
 # Installation
@@ -86,15 +83,14 @@ Austin Web UI around it.
 Austin Web can be installed from PyPI simply with
 
 ~~~ bash
-pip install austin-web
+pipx install austin-web
 ~~~
 
 > **NOTE** Austin Web relies on the
-> [Austin](https://github.com/P403n1x87/austin) binary being available from the
-> `PATH` environment variable. So make sure that Austin is properly installed on
-> your system. See
-> [Austin installation](https://github.com/P403n1x87/austin#installation)
-> instruction for more details on how to get Austin installed on your platform.
+> [Austin] binary being available from the `PATH` environment variable. So make
+> sure that Austin is properly installed on your system. See [Austin
+> installation](https://github.com/P403n1x87/austin#installation) instruction
+> for more details on how to get Austin installed on your platform.
 
 
 # Usage
@@ -147,6 +143,14 @@ mode, pressing `Ctrl+C` might not actually stop Austin Web.
 
 Since Austin Web uses Austin to collect samples, the same note applies here:
 
+> Attaching to a running process in Python requires the `cap_systrace`
+> capability. To avoid running Austin Web with `sudo`, consider setting it to
+> the Austin binary with, e.g.
+>
+> ~~~ bash
+> sudo setcap cap_sys_ptrace+ep `which austin`
+> ~~~
+
 > Due to the **System Integrity Protection** introduced in **MacOS** with El
 > Capitan, Austin cannot profile Python processes that use an executable located
 > in the `/bin` folder, even with `sudo`. Hence, either run the interpreter from
@@ -173,3 +177,10 @@ on BMC or by chipping in a few pennies on
        alt="Buy Me A Coffee" />
   </a>
 </p>
+
+
+[Austin]: https://github.com/P403n1x87/austin
+[D3.js]: https://d3js.org/
+[d3-flame-graph]: https://github.com/spiermar/d3-flame-graph
+[flamegraph.pl]: https://github.com/brendangregg/FlameGraph
+[tailwindcss]: https://tailwindcss.com/

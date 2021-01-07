@@ -258,8 +258,10 @@ class AustinWeb(AsyncAustin):
             loop.run_forever()
             if not austin_task.done():
                 austin_task.cancel()
-            loop.run_until_complete(austin_task)
-            austin_task.result()
+                try:
+                    loop.run_until_complete(austin_task)
+                except asyncio.CancelledError:
+                    pass
         except AustinError as e:
             (message,) = e.args
             if message[0] == "(":
