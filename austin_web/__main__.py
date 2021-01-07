@@ -258,6 +258,7 @@ class AustinWeb(AsyncAustin):
             loop.run_forever()
             if not austin_task.done():
                 austin_task.cancel()
+            loop.run_until_complete(austin_task)
             austin_task.result()
         except AustinError as e:
             (message,) = e.args

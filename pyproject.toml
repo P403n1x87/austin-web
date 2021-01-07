@@ -23,7 +23,7 @@
 
 [tool.poetry]
 name = "austin-web"
-version = "0.2.0"
+version = "0.2.1"
 description = "Flame graph web application for Austin"
 license = "GPL-3.0-or-later"
 authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
