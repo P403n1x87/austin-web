@@ -52,7 +52,7 @@ class AustinWebArgumentParser(AustinArgumentParser):
     """AustinWeb command line parser."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(name="austin-tui", full=False, alt_format=False)
+        super().__init__(name="austin-web", full=False, alt_format=False)
 
         # ---- Serve command ----
         self.add_argument(
