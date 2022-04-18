@@ -22,15 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 [tool.poetry]
-name = "austin-web"
-version = "0.2.1"
-description = "Flame graph web application for Austin"
-license = "GPL-3.0-or-later"
 authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
-readme = "README.md"
-homepage = "https://github.com/P403n1x87/austin-web"
-repository = "https://github.com/P403n1x87/austin-web"
-keywords = ["performance", "profiling", "testing", "development"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -40,32 +32,43 @@ classifiers = [
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
 ]
+description = "Flame graph web application for Austin"
+homepage = "https://github.com/P403n1x87/austin-web"
+keywords = ["performance", "profiling", "testing", "development"]
+license = "GPL-3.0-or-later"
+name = "austin-web"
 packages = [
-  { include = "austin_web" },
+  {include = "austin_web"},
 ]
+readme = "README.md"
+repository = "https://github.com/P403n1x87/austin-web"
+version = "0.0.0"
 
 [tool.poetry.scripts]
 austin-web = "austin_web.__main__:main"
 
 [tool.poetry.dependencies]
-python = "^3.6"
-austin-python = "^0.2.0"
 aiohttp = "^3.6.2"
-importlib_resources = "^3.0.0"
+austin-python = "^0.2.0"
 halo = "^0.0.29"
+importlib_resources = "^3.0.0"
 pyfiglet = "^0.8.post1"
+python = "^3.6"
 
 [tool.poetry.dev-dependencies]
+codecov = "^2.1.3"
 coverage = {extras = ["toml"], version = "*"}
+mypy = "^0.770"
+nox = "^2020.5.24"
 pytest = ">=5.4.2"
 pytest-cov = ">=2.8.1"
-nox = "^2020.5.24"
-mypy = "^0.770"
-codecov = "^2.1.3"
 requests = "^2.24.0"
 
 [tool.poetry.urls]
 issues = "https://github.com/P403n1x87/austin-web/issues"
+
+[tool.poetry-dynamic-versioning]
+enable = true
 
 [tool.coverage.run]
 branch = true
@@ -75,5 +78,5 @@ source = ["austin_web"]
 show_missing = true
 
 [build-system]
-requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+requires = ["poetry>=0.12", "poetry-dynamic-versioning"]
