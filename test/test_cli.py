@@ -1,6 +1,8 @@
 from austin.cli import AustinCommandLineError
-from austin_web.__main__ import _main, AustinWeb
 from pytest import raises
+
+from austin_web.__main__ import AustinWeb
+from austin_web.__main__ import _main
 
 
 def test_compile_serve():

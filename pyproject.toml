@@ -21,54 +21,87 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-[tool.poetry]
-authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
+[project]
+name = "austin-web"
+description = "Flame graph web application for Austin"
+authors = [{ name = "Gabriele N. Tornetta", email = "phoenix1987@gmail.com" }]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+
+keywords = ["performance", "profiling", "testing", "development"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-  "Programming Language :: Python :: 3.6",
-  "Programming Language :: Python :: 3.7",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
-description = "Flame graph web application for Austin"
+
+requires-python = ">=3.9"
+dependencies = ["aiohttp~=3.6", "austin-python~=1.7", "halo~=0.0.29"]
+
+dynamic = ["version"]
+
+[project.urls]
 homepage = "https://github.com/P403n1x87/austin-web"
-keywords = ["performance", "profiling", "testing", "development"]
-license = "GPL-3.0-or-later"
-name = "austin-web"
-packages = [
-  {include = "austin_web"},
-]
-readme = "README.md"
+documentation = "https://austin-web.readthedocs.io"
 repository = "https://github.com/P403n1x87/austin-web"
-version = "0.0.0"
-
-[tool.poetry.scripts]
-austin-web = "austin_web.__main__:main"
-
-[tool.poetry.dependencies]
-aiohttp = "^3.6.2"
-austin-python = "^0.2.0"
-halo = "^0.0.29"
-importlib_resources = "^3.0.0"
-pyfiglet = "^0.8.post1"
-python = "^3.6"
-
-[tool.poetry.dev-dependencies]
-codecov = "^2.1.3"
-coverage = {extras = ["toml"], version = "*"}
-mypy = "^0.770"
-nox = "^2020.5.24"
-pytest = ">=5.4.2"
-pytest-cov = ">=2.8.1"
-requests = "^2.24.0"
-
-[tool.poetry.urls]
 issues = "https://github.com/P403n1x87/austin-web/issues"
 
-[tool.poetry-dynamic-versioning]
-enable = true
+[project.scripts]
+austin-web = "austin_web.__main__:main"
+
+[tool.hatch.envs.tests]
+template = "tests"
+dependencies = [
+  "austin-dist~=3.6",
+  "pytest>=5.4.2",
+  "pytest-asyncio",
+  "pytest-cov>=2.8.1",
+  "requests",
+]
+[tool.hatch.envs.tests.scripts]
+tests = "pytest --cov=austin --cov-report=term-missing --cov-report=xml {args}"
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.checks]
+python = "3.10"
+template = "checks"
+dependencies = [
+  "mypy~=0.770",
+  "flake8~=5.0.4",
+  "flake8-annotations~=2.9.1",
+  "flake8-black",
+  "flake8-bugbear~=22.9.23",
+  "flake8-docstrings~=1.6.0",
+  "flake8-import-order~=0.18.1",
+  "flake8-isort~=5.0.0",
+]
+
+[tool.hatch.envs.checks.scripts]
+typing = "mypy --show-error-codes --install-types --non-interactive {args} austin_web/ test/"
+linting = "flake8 {args} austin_web/ test/ "
+
+[tool.hatch.envs.coverage]
+python = "3.10"
+template = "coverage"
+dependencies = ["coverage[toml]", "codecov"]
+
+[tool.hatch.envs.coverage.scripts]
+cov = "coverage xml --fail-under=50"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/docs"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["austin_web"]
 
 [tool.coverage.run]
 branch = true
@@ -77,6 +110,19 @@ source = ["austin_web"]
 [tool.coverage.report]
 show_missing = true
 
+[tool.isort]
+force_single_line = true
+lines_after_imports = 2
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = []
+
+# [[tool.mypy.overrides]]
+# module = []
+# ignore_errors = true
+
 [build-system]
-build-backend = "poetry.masonry.api"
-requires = ["poetry>=0.12", "poetry-dynamic-versioning"]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"

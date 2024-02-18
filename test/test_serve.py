@@ -1,7 +1,9 @@
 import asyncio
 
 import aiohttp
-from austin_web.__main__ import _main, AustinWeb
+
+from austin_web.__main__ import AustinWeb
+from austin_web.__main__ import _main
 
 
 class AustinWebTest(AustinWeb):

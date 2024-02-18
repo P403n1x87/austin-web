@@ -1,8 +1,8 @@
 """HTML resource handling utilities."""
 
-from typing import Optional, Tuple
-
-from importlib_resources import files
+from importlib.resources import files
+from typing import Optional
+from typing import Tuple
 
 
 def get_resource(name: str) -> str:

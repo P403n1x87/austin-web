@@ -1,7 +1,8 @@
 import os.path
 from tempfile import TemporaryDirectory as TempDir
 
-from austin_web.__main__ import _main, AustinWeb
+from austin_web.__main__ import AustinWeb
+from austin_web.__main__ import _main
 
 
 def test_compile():

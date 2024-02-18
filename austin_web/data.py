@@ -1,28 +1,39 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import cast
 
+import psutil
 from aiohttp import web
 from austin.aio import AsyncAustin
-from austin.stats import Frame, Sample
-import psutil
+from austin.stats import Frame
+from austin.stats import MetricType
+from austin.stats import Sample
 
 
 class WebFrame:
     """Frame class designed to work nicely with d3-flame-graph."""
 
-    __slots__ = ["name", "value", "children", "index", "parent", "height"]
+    __slots__ = ["name", "data", "value", "children", "index", "parent", "height"]
 
     def __init__(self, name: Any, value: int) -> None:
         self.name: str = str(name)
+        self.data: Dict[str, Any] = {"name": self.name, "file": None}
         self.value: int = value
         self.children: List["WebFrame"] = []
         self.index: Dict[str, "WebFrame"] = {}
         self.parent: Optional["WebFrame"] = None
         self.height: int = 1
 
+    def __eq__(self, _other: object) -> bool:
+        other = cast(WebFrame, _other)
+        return self.name == other.name and self.data == other.data
+
     def __add__(self, other: "WebFrame") -> "WebFrame":
         """Update the values by merging the right frame into the left one."""
-        if self.name != other.name:
+        if self != other:
             if not self.parent:
                 raise ValueError("Parent missing in non-root WebFrame")
             self.parent.add_child(other)
@@ -51,18 +62,20 @@ class WebFrame:
 
         def build_frame(frames: List[Frame]) -> "WebFrame":
             first, *tail = frames
-            frame = WebFrame(str(first), sample.metrics.time)
+            frame = WebFrame(first.function, sample.metric.value)
+            frame.data["name"] = first.function
+            frame.data["file"] = first.filename
             if tail:
                 child = build_frame(tail)
                 frame.add_child(child)
                 frame.height = child.height + 1
             else:
-                frame.value = sample.metrics.time
+                frame.value = sample.metric.value
             return frame
 
-        sample = Sample.parse(text)
-        process_frame = WebFrame(sample.pid, sample.metrics.time)
-        thread_frame = WebFrame(sample.thread, sample.metrics.time)
+        (sample,) = Sample.parse(text, MetricType.TIME)
+        process_frame = WebFrame(sample.pid, sample.metric.value)
+        thread_frame = WebFrame(sample.thread, sample.metric.value)
 
         if sample.frames:
             thread_frame.add_child(build_frame(sample.frames))
@@ -89,6 +102,7 @@ class WebFrame:
         return {
             "name": self.name,
             "value": self.value,
+            "data": self.data,
             "children": [c.to_dict() for c in self.children],
         }
 
@@ -96,7 +110,7 @@ class WebFrame:
         """The frame representation of its fields."""
         return (
             type(self).__name__
-            + f"({ {s: getattr(self, s) for s in ['name', 'value', 'children', 'height']} })"
+            + f"({ {s: getattr(self, s) for s in ['name', 'data', 'value', 'children', 'height']} })"
         )
 
 

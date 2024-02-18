@@ -1,7 +1,9 @@
 import re
 
-from austin_web.html import load_compile, load_site
 from requests import get
+
+from austin_web.html import load_compile
+from austin_web.html import load_site
 
 
 URL_RE = re.compile(r"(?:src|href)=\"(http[s]*://[^\"]+)\"")

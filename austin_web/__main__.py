@@ -21,21 +21,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from enum import Enum
 import json
 import sys
-from typing import Any, List, Optional, Type
 import weakref
+from enum import Enum
+from typing import Any
+from typing import List
+from typing import Optional
+from typing import Type
 
 from aiohttp import web
 from aiohttp.test_utils import unused_port
-from austin import AustinError, AustinTerminated
+from austin import AustinError
+from austin import AustinTerminated
 from austin.aio import AsyncAustin
-from austin.cli import AustinArgumentParser, AustinCommandLineError
-from austin_web.data import DataPool, WebFrame
-from austin_web.html import load_compile, load_site
+from austin.cli import AustinArgumentParser
+from austin.cli import AustinCommandLineError
 from halo import Halo
-from pyfiglet import Figlet
+
+from austin_web import _figlet
+from austin_web.data import DataPool
+from austin_web.data import WebFrame
+from austin_web.html import load_compile
+from austin_web.html import load_site
 
 
 if sys.platform == "win32":
@@ -115,8 +123,8 @@ class AustinWeb(AsyncAustin):
 
     def on_ready(self, *args: Any, **kwargs: Any) -> None:
         """Austin ready callback."""
-        if self._mode == AustinWebMode.SERVE:
-            asyncio.get_event_loop().create_task(self.start_server())
+        if self._mode is AustinWebMode.SERVE:
+            asyncio.create_task(self.start_server())
         else:
             self._spinner = Halo(text="Sampling", spinner="dots")
             self._spinner.start()
@@ -124,27 +132,37 @@ class AustinWeb(AsyncAustin):
 
     def on_sample_received(self, text: str) -> None:
         """Austin sample received callback."""
-        if self._mode == AustinWebMode.SERVE:
+        if self._mode is AustinWebMode.SERVE:
             if not self._pools:
                 return
-            frame = WebFrame.parse(text)
+            try:
+                frame = WebFrame.parse(text)
+            except Exception:
+                # TODO: log exception
+                return
             for data_pool in self._pools:
                 data_pool.add(frame)
         else:
             if not self._pool:
                 raise AustinWebError("Data pool is unexpectedly missing")
-            self._pool.add(WebFrame.parse(text))
+            try:
+                self._pool.add(WebFrame.parse(text))
+            except Exception:
+                # TODO: log exception
+                return
 
     def on_terminate(self, stats: str) -> None:
         """Austin terminate callback."""
         self._global_stats = stats
-        if self._mode == AustinWebMode.COMPILE:
+        if self._mode is AustinWebMode.COMPILE:
             if self._spinner:
                 self._spinner.stop()
 
             self.compile()
 
             asyncio.get_event_loop().stop()
+
+        print("🏁 Austin terminated.")
 
     def new_data_pool(self) -> DataPool:
         """Make new data pool for incoming request."""
@@ -221,12 +239,14 @@ class AustinWeb(AsyncAustin):
         site = web.TCPSite(self._runner, host, port)
         await site.start()
 
-        print(Figlet(font="speed", width=240).renderText("* Austin Web *"))
+        print(_figlet.program_name)
         print(
             f"⏲️ Sampling process with PID {self.get_process().pid} "
             f"({self.get_command_line()})"
         )
-        print(f"🏃 Austin Web is running on http://{host}:{port}. Press Ctrl+C to stop.")
+        print(
+            f"🏃 Austin Web is running on http://{host}:{port}. Press Ctrl+C to stop."
+        )
 
     async def stop_server(self) -> None:
         """Stop the web server asynchronously."""
@@ -240,65 +260,43 @@ class AustinWeb(AsyncAustin):
         except AustinTerminated:
             pass
         except AustinError as e:
-            asyncio.get_event_loop().stop()
-            raise e
+            print(f"austin-web: {e}")
 
     def run(self) -> None:
         """Run Austin Web."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            asyncio.set_event_loop(asyncio.new_event_loop())
-            loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.create_task(self.start(AustinWebArgumentParser.to_list(self._args)))
 
         try:
-            austin_task = loop.create_task(
-                self.start(AustinWebArgumentParser.to_list(self._args))
-            )
             loop.run_forever()
-            if not austin_task.done():
-                austin_task.cancel()
-                try:
-                    loop.run_until_complete(austin_task)
-                except asyncio.CancelledError:
-                    pass
-        except AustinError as e:
-            (message,) = e.args
-            if message[0] == "(":
-                _, _, message = message.partition(") ")
-            print(message)
         except KeyboardInterrupt:
-            print()
-        finally:
-            self.shutdown()
+            pass
+
+        self.shutdown()
 
     def shutdown(self) -> None:
         """Shutdown Austin Web."""
-        asyncio.get_event_loop().run_until_complete(self.stop_server())
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(self.stop_server())
+            loop.stop()
+        else:
+            loop.run_until_complete(self.stop_server())
 
-        try:
-            all_tasks = asyncio.all_tasks  # Python 3.7+
-        except AttributeError:
-            all_tasks = asyncio.Task.all_tasks  # Python 3.6
-
-        try:
-            for task in all_tasks():
+        for task in asyncio.all_tasks(loop):
+            if not task.done():
                 task.cancel()
-        except RuntimeError:
-            return
 
-        pending = [task for task in all_tasks() if not task.done()]
-        if pending:
-            try:
-                done, _ = asyncio.get_event_loop().run_until_complete(
-                    asyncio.wait(pending)
-                )
-                for t in done:
-                    res = t.result()
-                    if res:
-                        print(res)
-            except (AustinError, asyncio.CancelledError):
-                pass
+            if task.done():
+                try:
+                    task.result()
+                except AustinError as e:
+                    (message,) = e.args
+                    if message[0] == "(":
+                        _, _, message = message.partition(") ")
+                    print(message)
 
 
 def _main(cls: Type[AustinWeb], args: List[str]) -> None:
