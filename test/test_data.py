@@ -4,12 +4,12 @@ from austin_web.data import WebFrame
 def test_webframe():
     root = WebFrame.new_root()
 
-    root += WebFrame.parse("P123;T0x546745146 1042")
+    root += WebFrame.parse("P123;T0:0x546745146 1042")
 
     assert root.height == 3
 
     root += WebFrame.parse(
-        "P123;T0x546745146;foo (foo_module.py:10);bar (bar_module.py:20) 1042"
+        "P123;T0:0x546745146;foo_module.py:foo:10;bar_module.py:bar:20 1042"
     )
 
     node = root

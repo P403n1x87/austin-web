@@ -98,7 +98,7 @@ pipx install austin-web
 You can run Austin Web simply with
 
 ~~~ bash
-austin-web python3 myscript.py
+austin-web python myscript.py
 ~~~
 
 to start serving on localhost over an ephemeral port. If `myscript.py` is an
@@ -113,7 +113,7 @@ If you want to specify the host and the port, you can pass the `--host` and
 port 5050, use
 
 ~~~ bash
-austin-web --host 0.0.0.0 --port 5050 python3 myscript.py
+austin-web --host 0.0.0.0 --port 5050 python myscript.py
 ~~~
 
 If you want to compile the collected metrics into a static HTML page, you can
@@ -121,7 +121,7 @@ run Austin Web in compile mode by passing the `--compile` option, followed by
 the destination file name, e.g.
 
 ~~~ bash
-austin-web --compile output.html python3 myscript.py
+austin-web --compile output.html python myscript.py
 ~~~
 
 Like Austin, you can use Austin Web to profile any running Python application.
@@ -135,7 +135,7 @@ sudo austin-web -Cp <pid>
 
 # Compatibility
 
-Austin Web has been tested with Python 3.6-3.9 and is known to work on
+Austin Web has been tested with Python 3.9-3.12 and is known to work on
 **Linux**, **MacOS** and **Windows**.
 
 Austin Web is known to have some minor issues on Windows. When started in serve
